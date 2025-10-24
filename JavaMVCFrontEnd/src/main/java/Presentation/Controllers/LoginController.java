@@ -11,6 +11,8 @@ import Services.MaintenanceService;
 import Utilities.EventType;
 
 import javax.swing.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.Dictionary;
 import java.util.Hashtable;
 
@@ -23,6 +25,49 @@ public class LoginController extends Observable {
         this.loginView = loginView;
         this.authService = authService;
         this.loginView.addLoginListener(e -> handleLogin());
+
+        this.loginView.addAddUserListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String cmd = e.getActionCommand();
+                if (cmd == null || cmd.isEmpty()) return;
+                String[] parts = cmd.split("\\|", 3);
+                if (parts.length < 3) return;
+
+                String newUser = parts[0];
+                String newEmail = parts[1];
+                String newPass = parts[2];
+
+                // registrar asíncrono
+                loginView.showLoading(true);
+                SwingWorker<UserResponseDto, Void> regWorker = new SwingWorker<>() {
+                    @Override
+                    protected UserResponseDto doInBackground() throws Exception {
+                        // asumo que authService.register devuelve Future<UserResponseDto>
+                        return authService.register(newUser, newEmail, newPass).get();
+                    }
+
+                    @Override
+                    protected void done() {
+                        loginView.showLoading(false);
+                        try {
+                            UserResponseDto created = get();
+                            if (created != null) {
+                                JOptionPane.showMessageDialog(loginView, "User created: " + created.getUsername());
+                                // auto-fill username for convenience
+                                loginView.setUsernameField(created.getUsername());
+                            } else {
+                                JOptionPane.showMessageDialog(loginView, "User not created (maybe already exists)", "Info", JOptionPane.INFORMATION_MESSAGE);
+                            }
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                            JOptionPane.showMessageDialog(loginView, "Error creating user: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                        }
+                    }
+                };
+                regWorker.execute();
+            }
+        });
     }
 
     private void handleLogin() {
@@ -49,7 +94,7 @@ public class LoginController extends Observable {
                     UserResponseDto user = get();
                     if (user != null) {
                         loginView.setVisible(false);
-                        openMainView();
+                        openMainView(user);
                         notifyObservers(EventType.UPDATED, user);
                     } else {
                         JOptionPane.showMessageDialog(loginView, "Invalid username or password", "Error", JOptionPane.ERROR_MESSAGE);
@@ -63,7 +108,7 @@ public class LoginController extends Observable {
         worker.execute();
     }
 
-    private void openMainView() {
+    private void openMainView(UserResponseDto user) {
         MainView mainView = new MainView();
 
         String host = "localhost";
@@ -71,9 +116,12 @@ public class LoginController extends Observable {
         int messagesPort = 7001;
 
         CarsView carsView = new CarsView(mainView);
-        CarService carService = new CarService(host, serverPort);
-        MaintenanceService maintenanceService = new MaintenanceService(host, serverPort);
-        new CarsController(carsView, carService, maintenanceService);
+
+        Long userId = user != null ? user.getId() : null;
+        CarService carService = new CarService(host, serverPort, userId);
+        MaintenanceService maintenanceService = new MaintenanceService(host, serverPort, userId);
+
+        new CarsController(carsView, carService, maintenanceService, user);
 
         Dictionary<String, JPanel> tabs = new Hashtable<>();
         tabs.put("Cars", carsView.getContentPanel());

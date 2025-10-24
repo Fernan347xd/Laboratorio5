@@ -12,7 +12,6 @@ import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 
-
 public class AuthService {
     private final SessionFactory sessionFactory;
 
@@ -51,6 +50,9 @@ public class AuthService {
                     return null;
                 }
 
+                // Normalizar role y asignar por defecto si falta
+                String normalizedRole = (role == null || role.trim().isEmpty()) ? "USER" : role.trim().toUpperCase();
+
                 // Guardar el nuevo usuario
                 String salt = generateSalt();
                 String hashedPassword = hashPassword(password, salt);
@@ -60,16 +62,16 @@ public class AuthService {
                 user.setEmail(email);
                 user.setSalt(salt);
                 user.setPasswordHash(hashedPassword);
-                user.setRole(role);
+                user.setRole(normalizedRole);
 
                 session.persist(user);
                 session.flush();
                 tx.commit();
 
-                System.out.println("[AuthService] register success: " + username);
+                System.out.println("[AuthService] register success: " + username + " role=" + normalizedRole);
                 return user;
             } catch (Exception inner) {
-                if (tx != null && tx.getStatus() != null) {
+                if (tx != null) {
                     try { tx.rollback(); } catch (Exception ignore) {}
                 }
                 String message = String.format("An error occurred when processing: %s. Details: %s", "register", inner);
@@ -78,11 +80,12 @@ public class AuthService {
             }
         }
     }
+
     // -------------------------
-    // User Login
+    // User Login (returns User on success, null on failure)
     // -------------------------
-    public boolean login(String usernameOrEmail, String password) {
-        try{
+    public User login(String usernameOrEmail, String password) {
+        try {
             User user = getUserByUsername(usernameOrEmail);
 
             if (user == null) {
@@ -90,11 +93,17 @@ public class AuthService {
             }
 
             if (user == null) {
-                return false;
+                return null;
             }
 
             String hashedInput = hashPassword(password, user.getSalt());
-            return hashedInput.equals(user.getPasswordHash()); // Comparar hashes, no contrasenas en string
+            boolean ok = hashedInput.equals(user.getPasswordHash()); // Comparar hashes
+            if (ok) {
+                // Initialize or detach as needed before returning if you want to avoid lazy issues in controller
+                return user;
+            } else {
+                return null;
+            }
 
         } catch (Exception e) {
             String message = String.format("An error occurred when processing: %s. Details: %s", "login", e);
@@ -136,7 +145,7 @@ public class AuthService {
 
     /**
      * Crear la salt para la contransena del usuario
-     * @return String aleatorio de SALT_LENGTH caracteres
+     * @return String aleatorio de SALT_LENGTH bytes codificado en Base64
      */
     private String generateSalt() {
         SecureRandom random = new SecureRandom();
@@ -148,7 +157,7 @@ public class AuthService {
     /**
      * Funcion para hacer el hash de la contrasena + salt.
      * @param password El password del usuario
-     * @param salt La salt generada
+     * @param salt The Base64-encoded salt
      * @return Retorna un string de tipo Hash que representa la contrasena del usuario + la salt
      */
     private String hashPassword(String password, String salt) {

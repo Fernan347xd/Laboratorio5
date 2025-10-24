@@ -7,6 +7,7 @@ import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
 
+import java.util.Collections;
 import java.util.List;
 
 public class CarService {
@@ -21,7 +22,17 @@ public class CarService {
     // -------------------------
     public Car createCar(String make, String model, int year, Long ownerId) {
         try (Session session = sessionFactory.openSession()) {
-            var owner = session.find(User.class, ownerId);
+            User owner = null;
+            if (ownerId != null) {
+                owner = session.find(User.class, ownerId);
+            }
+
+            if (owner == null) {
+                String message = String.format("Owner not found for id=%s. Aborting createCar.", ownerId);
+                System.out.println(message);
+                throw new IllegalArgumentException("Owner not found");
+            }
+
             Transaction tx = session.beginTransaction();
 
             Car car = new Car();
@@ -32,6 +43,9 @@ public class CarService {
 
             session.persist(car);
             tx.commit();
+
+            // Ensure owner is initialized on the returned entity
+            Hibernate.initialize(car.getOwner());
             return car;
         } catch (Exception e) {
             String message = String.format("An error occurred when processing: %s. Details: %s", "createCar", e);
@@ -45,7 +59,9 @@ public class CarService {
     // -------------------------
     public Car getCarById(Long id) {
         try (Session session = sessionFactory.openSession()) {
-            return session.find(Car.class, id);
+            Car car = session.find(Car.class, id);
+            if (car != null) Hibernate.initialize(car.getOwner());
+            return car;
         } catch (Exception e) {
             String message = String.format("An error occurred when processing: %s. Details: %s", "getCarById", e);
             System.out.println(message);
@@ -56,7 +72,9 @@ public class CarService {
     public List<Car> getAllCars() {
         try (Session session = sessionFactory.openSession()) {
             List<Car> cars = session.createQuery("FROM Car", Car.class).list();
-            cars.forEach(car -> Hibernate.initialize(car.getOwner())); // Incluir tambien al dueno
+            cars.forEach(car -> {
+                try { Hibernate.initialize(car.getOwner()); } catch (Exception ignored) {}
+            });
             return cars;
         } catch (Exception e) {
             String message = String.format("An error occurred when processing: %s. Details: %s", "getAllCars", e);
@@ -65,12 +83,33 @@ public class CarService {
         }
     }
 
+    // New: list cars by user id (filters by owner.id)
+    public List<Car> getCarsByUserId(Long userId) {
+        if (userId == null) return Collections.emptyList();
+        try (Session session = sessionFactory.openSession()) {
+            List<Car> cars = session.createQuery("FROM Car c WHERE c.owner.id = :uid", Car.class)
+                    .setParameter("uid", userId)
+                    .list();
+            cars.forEach(car -> {
+                try { Hibernate.initialize(car.getOwner()); } catch (Exception ignored) {}
+            });
+            return cars;
+        } catch (Exception e) {
+            String message = String.format("An error occurred when processing: %s. Details: %s", "getCarsByUserId", e);
+            System.out.println(message);
+            throw e;
+        }
+    }
+
     public List<Car> getCarsByUser(User user) {
+        if (user == null) return Collections.emptyList();
         try (Session session = sessionFactory.openSession()) {
             List<Car> cars = session.createQuery("FROM Car WHERE owner = :owner", Car.class)
                     .setParameter("owner", user)
                     .list();
-            cars.forEach(car -> Hibernate.initialize(car.getOwner())); // Incluir tambien al dueno
+            cars.forEach(car -> {
+                try { Hibernate.initialize(car.getOwner()); } catch (Exception ignored) {}
+            });
             return cars;
         } catch (Exception e) {
             String message = String.format("An error occurred when processing: %s. Details: %s", "getCarsByUser", e);

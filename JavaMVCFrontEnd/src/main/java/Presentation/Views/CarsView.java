@@ -27,8 +27,7 @@ public class CarsView {
     private final LoadingOverlay loadingOverlay;
     private final JFrame parentFrame; // para el overlay o posicionamiento
 
-    // Constructor: si usas GUI designer, IntelliJ inicializa los componentes desde el .form.
-    // Para desarrollo por código, inicializo elementos si están nulos.
+
     public CarsView(JFrame parentFrame) {
         this.parentFrame = parentFrame;
 
@@ -38,7 +37,6 @@ public class CarsView {
             ContentPanel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
         }
 
-        // Inicializar tabla y modelo si el diseñador no lo hizo
         tableModel = new CarsTableModel();
         if (CarsTable == null) {
             CarsTable = new JTable(tableModel);
@@ -54,14 +52,12 @@ public class CarsView {
             CarsTableScroll.setViewportView(CarsTable);
         }
 
-        // Si el diseñador ya colocó los panels, no reempacamos; si no, armamos la UI básica
         if (FormPanel == null) {
             FormPanel = new JPanel();
             FormPanel.setLayout(new BoxLayout(FormPanel, BoxLayout.Y_AXIS));
             FormPanel.setPreferredSize(new Dimension(300, 0));
         }
 
-        // Campos de formulario (crear si el diseñador no los creo)
         if (CarMakeField == null) CarMakeField = new JTextField();
         if (CarModelField == null) CarModelField = new JTextField();
         if (YearTextField == null) YearTextField = new JTextField();
@@ -74,7 +70,6 @@ public class CarsView {
         if (AddMaintenance == null) AddMaintenance = new JButton("Agregar mantenimiento");
         if (ViewMaintenance == null) ViewMaintenance = new JButton("Ver mantenimientos");
 
-        // Si el .form no ensambló la jerarquía, hágalo ahora (fallback)
         if (ContentPanel.getComponentCount() == 0) {
             ContentPanel.add(CarsTableScroll, BorderLayout.CENTER);
 
@@ -108,10 +103,8 @@ public class CarsView {
             CarsTable.setModel(tableModel);
         }
 
-        // overlay (usa parentFrame si existe)
         loadingOverlay = new LoadingOverlay(parentFrame);
 
-        // No registrar listeners aquí; el Controller debe hacerlo.
     }
 
     // Getter que el .form y el Controller esperan
@@ -149,7 +142,6 @@ public class CarsView {
         YearTextField.setText(String.valueOf(car.getYear()));
     }
 
-    // Convenience methods for controller attachment
     public void addAgregarListener(ActionListener l) { AgregarButton.addActionListener(l); }
     public void addUpdateListener(ActionListener l) { UpdateButton.addActionListener(l); }
     public void addBorrarListener(ActionListener l) { BorrarButton.addActionListener(l); }

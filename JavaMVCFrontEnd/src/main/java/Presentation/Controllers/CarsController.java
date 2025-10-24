@@ -1,5 +1,6 @@
 package Presentation.Controllers;
 
+import Domain.Dtos.auth.UserResponseDto;
 import Domain.Dtos.cars.AddCarRequestDto;
 import Domain.Dtos.cars.CarResponseDto;
 import Domain.Dtos.cars.DeleteCarRequestDto;
@@ -24,12 +25,13 @@ public class CarsController extends Observable {
     private final CarsView carsView;
     private final CarService carService;
     private final MaintenanceService maintenanceService;
+    private final UserResponseDto user;
 
-    public CarsController(CarsView carsView, CarService carService, MaintenanceService maintenanceService) {
+    public CarsController(CarsView carsView, CarService carService, MaintenanceService maintenanceService, UserResponseDto user) {
         this.carsView = carsView;
         this.carService = carService;
         this.maintenanceService = maintenanceService;
-
+        this.user = user;
         addObserver(carsView.getTableModel());
         loadCarsAsync();
         addListeners();
@@ -37,23 +39,21 @@ public class CarsController extends Observable {
 
     private void loadCarsAsync() {
         carsView.showLoading(true);
-
         SwingWorker<List<CarResponseDto>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<CarResponseDto> doInBackground() throws Exception {
-                Future<List<CarResponseDto>> f = carService.listCarsAsync(1L);
-                return f.get();
+                Long userId = user != null ? user.getId() : null;
+                return carService.listCarsAsync(userId).get();
             }
-
             @Override
             protected void done() {
+                carsView.showLoading(false);
                 try {
                     List<CarResponseDto> cars = get();
-                    if (cars != null) carsView.getTableModel().setCars(cars);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                } finally {
-                    carsView.showLoading(false);
+                    carsView.getTableModel().setCars(cars != null ? cars : new ArrayList<>());
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    carsView.getTableModel().setCars(new ArrayList<>());
                 }
             }
         };
@@ -76,12 +76,13 @@ public class CarsController extends Observable {
             String model = carsView.getCarModelField().getText();
             int year = Integer.parseInt(carsView.getYearTextField().getText());
 
-            AddCarRequestDto dto = new AddCarRequestDto(make, model, year, 1L);
+            Long userId = user != null ? user.getId() : null;
+            AddCarRequestDto dto = new AddCarRequestDto(make, model, year, userId);
 
             SwingWorker<CarResponseDto, Void> worker = new SwingWorker<>() {
                 @Override
                 protected CarResponseDto doInBackground() throws Exception {
-                    Future<CarResponseDto> f = carService.addCarAsync(dto, 1L);
+                    Future<CarResponseDto> f = carService.addCarAsync(dto, userId);
                     return f.get();
                 }
 
@@ -92,6 +93,7 @@ public class CarsController extends Observable {
                         if (car != null) {
                             notifyObservers(EventType.CREATED, car);
                             carsView.clearFields();
+                            loadCarsAsync();
                         } else {
                             JOptionPane.showMessageDialog(carsView.getContentPanel(), "No se pudo agregar el vehículo.", "Error", JOptionPane.ERROR_MESSAGE);
                         }
@@ -122,11 +124,12 @@ public class CarsController extends Observable {
             int year = Integer.parseInt(carsView.getYearTextField().getText());
 
             UpdateCarRequestDto dto = new UpdateCarRequestDto(selectedCar.getId(), make, model, year);
+            Long userId = user != null ? user.getId() : null;
 
             SwingWorker<CarResponseDto, Void> worker = new SwingWorker<>() {
                 @Override
                 protected CarResponseDto doInBackground() throws Exception {
-                    Future<CarResponseDto> f = carService.updateCarAsync(dto, 1L);
+                    Future<CarResponseDto> f = carService.updateCarAsync(dto, userId);
                     return f.get();
                 }
 
@@ -137,6 +140,7 @@ public class CarsController extends Observable {
                         if (updatedCar != null) {
                             notifyObservers(EventType.UPDATED, updatedCar);
                             carsView.clearFields();
+                            loadCarsAsync();
                         } else {
                             JOptionPane.showMessageDialog(carsView.getContentPanel(), "No se pudo actualizar el vehículo.", "Error", JOptionPane.ERROR_MESSAGE);
                         }
@@ -162,11 +166,12 @@ public class CarsController extends Observable {
 
         CarResponseDto selectedCar = carsView.getTableModel().getCars().get(selectedRow);
         DeleteCarRequestDto dto = new DeleteCarRequestDto(selectedCar.getId());
+        Long userId = user != null ? user.getId() : null;
 
         SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
             @Override
             protected Boolean doInBackground() throws Exception {
-                Future<Boolean> f = carService.deleteCarAsync(dto, 1L);
+                Future<Boolean> f = carService.deleteCarAsync(dto, userId);
                 return f.get();
             }
 
@@ -174,9 +179,10 @@ public class CarsController extends Observable {
             protected void done() {
                 try {
                     Boolean success = get();
-                    if (success) {
+                    if (success != null && success) {
                         notifyObservers(EventType.DELETED, selectedCar.getId());
                         carsView.clearFields();
+                        loadCarsAsync();
                     } else {
                         JOptionPane.showMessageDialog(carsView.getContentPanel(), "No se pudo borrar el vehículo.", "Error", JOptionPane.ERROR_MESSAGE);
                     }
@@ -240,6 +246,7 @@ public class CarsController extends Observable {
 
         CarResponseDto selectedCar = carsView.getTableModel().getCars().get(selectedRow);
         AddMaintenanceRequestDto dto = new AddMaintenanceRequestDto(description, selectedType, selectedCar.getId());
+        Long userId = user != null ? user.getId() : null;
 
         carsView.showLoading(true);
 
@@ -250,10 +257,10 @@ public class CarsController extends Observable {
             @Override
             protected Void doInBackground() throws Exception {
                 try {
-                    var future = maintenanceService.addMaintenanceAsync(dto, 1L);
+                    var future = maintenanceService.addMaintenanceAsync(dto, userId);
                     created = future.get(); // puede ser null si falla
                     if (created != null) {
-                        Future<List<CarResponseDto>> lf = carService.listCarsAsync(1L);
+                        Future<List<CarResponseDto>> lf = carService.listCarsAsync(userId);
                         List<CarResponseDto> all = lf.get();
                         if (all != null) {
                             for (CarResponseDto c : all) {
@@ -273,7 +280,7 @@ public class CarsController extends Observable {
             @Override
             protected void done() {
                 try {
-                    get(); // propaga excepciones ocurridas en doInBackground
+                    get();
                     if (created != null) {
                         List<MaintenanceResponseDto> toShow = new ArrayList<>();
                         try {
@@ -294,7 +301,7 @@ public class CarsController extends Observable {
                                         if (existing != null && !existing.isEmpty()) toShow.addAll(existing);
                                     }
                                 } catch (NoSuchMethodException ignored) {
-                                    // DTO no contiene mantenimientos, seguir
+
                                 } catch (Exception ex) {
                                     ex.printStackTrace();
                                 }
@@ -339,7 +346,6 @@ public class CarsController extends Observable {
         }
 
         CarResponseDto car = carsView.getTableModel().getCars().get(selectedRow);
-        // Intentar usar mantenimientos cargados en el DTO si existen
         List<MaintenanceResponseDto> existing = null;
         try {
             existing = (List<MaintenanceResponseDto>) car.getClass().getMethod("getMaintenances").invoke(car);
@@ -355,13 +361,13 @@ public class CarsController extends Observable {
             return;
         }
 
-        // Fallback: solicitar al servicio
         carsView.showLoading(true);
         SwingWorker<List<MaintenanceResponseDto>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<MaintenanceResponseDto> doInBackground() throws Exception {
                 System.out.println("[DEBUG] Loading maintenances for carId=" + car.getId());
-                var future = maintenanceService.listByCarAsync(car.getId(), 1L);
+                Long userId = user != null ? user.getId() : null;
+                var future = maintenanceService.listByCarAsync(car.getId(), userId);
                 List<MaintenanceResponseDto> list = future.get();
                 System.out.println("[DEBUG] Received maintenances list: " + (list == null ? "null" : list.size()));
                 return list;
@@ -391,7 +397,6 @@ public class CarsController extends Observable {
         worker.execute();
     }
 
-    // Método helper que construye y muestra el diálogo ya poblado
     private void showMaintenanceDialog(CarResponseDto car, List<MaintenanceResponseDto> list) {
         Window owner = SwingUtilities.getWindowAncestor(carsView.getContentPanel());
         JDialog dialog = new JDialog(owner, "Mantenimientos - " + car.getMake() + " " + car.getModel(), Dialog.ModalityType.APPLICATION_MODAL);
