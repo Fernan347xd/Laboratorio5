@@ -3,6 +3,7 @@ package org.example.Server;
 import com.google.gson.Gson;
 import org.example.API.controllers.AuthController;
 import org.example.API.controllers.CarController;
+import org.example.API.controllers.MaintenanceController;
 import org.example.Domain.dtos.RequestDto;
 import org.example.Domain.dtos.ResponseDto;
 import org.example.Domain.dtos.auth.UserResponseDto;
@@ -15,6 +16,7 @@ public class ClientHandler implements Runnable {
     private final Socket clientSocket;
     private final AuthController authController;
     private final CarController carController;
+    private final MaintenanceController maintenanceController;
     private final SocketServer server;
     private final Gson gson = new Gson();
     private PrintWriter out;
@@ -22,10 +24,12 @@ public class ClientHandler implements Runnable {
     public ClientHandler(Socket clientSocket,
                          AuthController authController,
                          CarController carController,
+                         MaintenanceController maintenanceController,
                          SocketServer server) {
         this.clientSocket = clientSocket;
         this.authController = authController;
         this.carController = carController;
+        this.maintenanceController = maintenanceController;
         this.server = server;
     }
 
@@ -77,6 +81,10 @@ public class ClientHandler implements Runnable {
 
             case "Cars":
                 response = carController.route(request);
+                break;
+
+            case "Maintenance":
+                response = maintenanceController.route(request);
                 break;
 
             default:

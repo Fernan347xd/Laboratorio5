@@ -1,4 +1,4 @@
-package org.example.Domain.dtos.maintenance;
+package Domain.Dtos.maintenance;
 
 import java.util.List;
 

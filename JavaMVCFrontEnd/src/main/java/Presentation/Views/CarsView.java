@@ -4,8 +4,11 @@ import Domain.Dtos.cars.CarResponseDto;
 import Presentation.Models.CarsTableModel;
 
 import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionListener;
 
 public class CarsView {
+    // Nombres de campo exactos requeridos por el .form
     private JPanel ContentPanel;
     private JPanel FormPanel;
     private JTable CarsTable;
@@ -17,39 +20,121 @@ public class CarsView {
     private JTextField CarMakeField;
     private JTextField CarModelField;
     private JTextField YearTextField;
+    private JButton AddMaintenance;
+    private JButton ViewMaintenance;
 
     private final CarsTableModel tableModel;
     private final LoadingOverlay loadingOverlay;
+    private final JFrame parentFrame; // para el overlay o posicionamiento
 
-    //  Cada tab requiere una referencia al parentFrame para poder implementar el overlay de carga.
+    // Constructor: si usas GUI designer, IntelliJ inicializa los componentes desde el .form.
+    // Para desarrollo por código, inicializo elementos si están nulos.
     public CarsView(JFrame parentFrame) {
-        tableModel = new CarsTableModel();
-        CarsTable.setModel(tableModel);
+        this.parentFrame = parentFrame;
 
-        // Reusable overlay instance
+        // Si el .form ya creó ContentPanel, usarlo; si no, crear una estructura por código (fallback).
+        if (ContentPanel == null) {
+            ContentPanel = new JPanel(new BorderLayout(8, 8));
+            ContentPanel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        }
+
+        // Inicializar tabla y modelo si el diseñador no lo hizo
+        tableModel = new CarsTableModel();
+        if (CarsTable == null) {
+            CarsTable = new JTable(tableModel);
+            CarsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+            CarsTable.setAutoCreateRowSorter(true);
+        } else {
+            CarsTable.setModel(tableModel);
+        }
+
+        if (CarsTableScroll == null) {
+            CarsTableScroll = new JScrollPane(CarsTable);
+        } else {
+            CarsTableScroll.setViewportView(CarsTable);
+        }
+
+        // Si el diseñador ya colocó los panels, no reempacamos; si no, armamos la UI básica
+        if (FormPanel == null) {
+            FormPanel = new JPanel();
+            FormPanel.setLayout(new BoxLayout(FormPanel, BoxLayout.Y_AXIS));
+            FormPanel.setPreferredSize(new Dimension(300, 0));
+        }
+
+        // Campos de formulario (crear si el diseñador no los creo)
+        if (CarMakeField == null) CarMakeField = new JTextField();
+        if (CarModelField == null) CarModelField = new JTextField();
+        if (YearTextField == null) YearTextField = new JTextField();
+
+        // Botones (crear si el diseñador no los creo)
+        if (AgregarButton == null) AgregarButton = new JButton("Agregar");
+        if (UpdateButton == null) UpdateButton = new JButton("Actualizar");
+        if (BorrarButton == null) BorrarButton = new JButton("Borrar");
+        if (ClearButton == null) ClearButton = new JButton("Limpiar");
+        if (AddMaintenance == null) AddMaintenance = new JButton("Agregar mantenimiento");
+        if (ViewMaintenance == null) ViewMaintenance = new JButton("Ver mantenimientos");
+
+        // Si el .form no ensambló la jerarquía, hágalo ahora (fallback)
+        if (ContentPanel.getComponentCount() == 0) {
+            ContentPanel.add(CarsTableScroll, BorderLayout.CENTER);
+
+            FormPanel.removeAll();
+            FormPanel.add(new JLabel("Make:"));
+            FormPanel.add(CarMakeField);
+            FormPanel.add(Box.createVerticalStrut(8));
+            FormPanel.add(new JLabel("Model:"));
+            FormPanel.add(CarModelField);
+            FormPanel.add(Box.createVerticalStrut(8));
+            FormPanel.add(new JLabel("Year:"));
+            FormPanel.add(YearTextField);
+            FormPanel.add(Box.createVerticalStrut(12));
+
+            JPanel buttons = new JPanel(new GridLayout(0, 1, 6, 6));
+            buttons.add(AgregarButton);
+            buttons.add(UpdateButton);
+            buttons.add(BorrarButton);
+            buttons.add(ClearButton);
+            FormPanel.add(buttons);
+            FormPanel.add(Box.createVerticalStrut(12));
+
+            JPanel maintButtons = new JPanel(new GridLayout(0, 1, 6, 6));
+            maintButtons.add(AddMaintenance);
+            maintButtons.add(ViewMaintenance);
+            FormPanel.add(maintButtons);
+
+            ContentPanel.add(FormPanel, BorderLayout.EAST);
+        } else {
+            // Si el diseñador ya armó todo, asegurarse que la tabla use nuestro tableModel
+            CarsTable.setModel(tableModel);
+        }
+
+        // overlay (usa parentFrame si existe)
         loadingOverlay = new LoadingOverlay(parentFrame);
+
+        // No registrar listeners aquí; el Controller debe hacerlo.
     }
 
-    /**
-     * Shows or hides the loading overlay.
-     */
+    // Getter que el .form y el Controller esperan
+    public JPanel getContentPanel() { return ContentPanel; }
+
     public void showLoading(boolean visible) {
         loadingOverlay.show(visible);
     }
 
-    // --- getters ---
     public CarsTableModel getTableModel() { return tableModel; }
-    public JPanel getContentPanel() { return ContentPanel; }
     public JTable getCarsTable() { return CarsTable; }
-    public JButton getAgregarButton() { return AgregarButton; }
-    public JButton getBorrarButton() { return BorrarButton; }
-    public JButton getUpdateButton() { return UpdateButton; }
-    public JButton getClearButton() { return ClearButton; }
+
     public JTextField getCarMakeField() { return CarMakeField; }
     public JTextField getCarModelField() { return CarModelField; }
     public JTextField getYearTextField() { return YearTextField; }
 
-    // --- helper methods ---
+    public JButton getAgregarButton() { return AgregarButton; }
+    public JButton getBorrarButton() { return BorrarButton; }
+    public JButton getClearButton() { return ClearButton; }
+    public JButton getUpdateButton() { return UpdateButton; }
+    public JButton getAddMaintenanceButton() { return AddMaintenance; }
+    public JButton getViewMaintenanceButton() { return ViewMaintenance; }
+
     public void clearFields() {
         CarMakeField.setText("");
         CarModelField.setText("");
@@ -58,8 +143,17 @@ public class CarsView {
     }
 
     public void populateFields(CarResponseDto car) {
+        if (car == null) return;
         CarMakeField.setText(car.getMake());
         CarModelField.setText(car.getModel());
         YearTextField.setText(String.valueOf(car.getYear()));
     }
+
+    // Convenience methods for controller attachment
+    public void addAgregarListener(ActionListener l) { AgregarButton.addActionListener(l); }
+    public void addUpdateListener(ActionListener l) { UpdateButton.addActionListener(l); }
+    public void addBorrarListener(ActionListener l) { BorrarButton.addActionListener(l); }
+    public void addClearListener(ActionListener l) { ClearButton.addActionListener(l); }
+    public void addAddMaintenanceListener(ActionListener l) { AddMaintenance.addActionListener(l); }
+    public void addViewMaintenanceListener(ActionListener l) { ViewMaintenance.addActionListener(l); }
 }

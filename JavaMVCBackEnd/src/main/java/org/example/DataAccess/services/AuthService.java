@@ -30,34 +30,54 @@ public class AuthService {
     // -------------------------
     public User register(String username, String email, String password, String role) {
         try (Session session = sessionFactory.openSession()) {
-            // Verificar si el usuario ya existe
-            if (getUserByUsername(username) != null || getUserByEmail(email) != null) {
-                throw new IllegalArgumentException("Username or email already in use");
-            }
-
-            // Guardar el nuevo usuario si no existe
-            String salt = generateSalt(); // Crear sal (random string)
-            String hashedPassword = hashPassword(password, salt); // Crear hash de la contrasena
-
-            User user = new User();
-            user.setUsername(username);
-            user.setEmail(email);
-            user.setSalt(salt);
-            user.setPasswordHash(hashedPassword);
-            user.setRole(role);
-
             Transaction tx = session.beginTransaction();
-            session.persist(user); // Guardar en la base de datos.
-            tx.commit(); // Commit del cambio en la base de datos.
+            try {
+                // Comprobar existencia dentro de la misma sesión/tx
+                User existingByUsername = session.createQuery("FROM User WHERE username = :username", User.class)
+                        .setParameter("username", username)
+                        .uniqueResult();
+                if (existingByUsername != null) {
+                    System.out.println("[AuthService] register skipped: username already in use: " + username);
+                    tx.rollback();
+                    return null;
+                }
 
-            return user;
-        } catch (Exception e) {
-            String message = String.format("An error occurred when processing: %s. Details: %s", "register", e);
-            System.out.println(message);
-            throw e;
+                User existingByEmail = session.createQuery("FROM User WHERE email = :email", User.class)
+                        .setParameter("email", email)
+                        .uniqueResult();
+                if (existingByEmail != null) {
+                    System.out.println("[AuthService] register skipped: email already in use: " + email);
+                    tx.rollback();
+                    return null;
+                }
+
+                // Guardar el nuevo usuario
+                String salt = generateSalt();
+                String hashedPassword = hashPassword(password, salt);
+
+                User user = new User();
+                user.setUsername(username);
+                user.setEmail(email);
+                user.setSalt(salt);
+                user.setPasswordHash(hashedPassword);
+                user.setRole(role);
+
+                session.persist(user);
+                session.flush();
+                tx.commit();
+
+                System.out.println("[AuthService] register success: " + username);
+                return user;
+            } catch (Exception inner) {
+                if (tx != null && tx.getStatus() != null) {
+                    try { tx.rollback(); } catch (Exception ignore) {}
+                }
+                String message = String.format("An error occurred when processing: %s. Details: %s", "register", inner);
+                System.out.println(message);
+                throw inner;
+            }
         }
     }
-
     // -------------------------
     // User Login
     // -------------------------

@@ -1,6 +1,7 @@
-package org.example.Domain.dtos.maintenance;
+package Domain.Dtos.maintenance;
 
-import org.example.Domain.models.MaintenanceType;
+
+import Utilities.MaintenanceType;
 
 public class UpdateMaintenanceRequestDto {
     private Long id;

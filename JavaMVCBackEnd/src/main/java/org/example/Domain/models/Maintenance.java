@@ -7,33 +7,33 @@ import jakarta.persistence.*;
 public class Maintenance {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    int id;
+    private Long id;
 
     @Column(length = 100)
-    String description;
+    private String description;
 
     @Enumerated(EnumType.STRING)
-    MaintenanceType type;
+    private MaintenanceType type;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false) // Each car belongs to one user
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "car_id", nullable = false, foreignKey = @ForeignKey(name = "fk_car_maintenance"))
     private Car carMaintenance;
 
     public Maintenance() {
     }
 
-    public Maintenance(int id, String description, MaintenanceType type, Car carMaintenance) {
+    public Maintenance(Long id, String description, MaintenanceType type, Car carMaintenance) {
         this.id = id;
         this.description = description;
         this.type = type;
         this.carMaintenance = carMaintenance;
     }
 
-    public int getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(Long id) {
         this.id = id;
     }
 

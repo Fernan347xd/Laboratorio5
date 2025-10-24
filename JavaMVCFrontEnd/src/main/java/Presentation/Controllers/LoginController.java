@@ -7,6 +7,7 @@ import Presentation.Views.LoginView;
 import Presentation.Views.MainView;
 import Services.AuthService;
 import Services.CarService;
+import Services.MaintenanceService;
 import Utilities.EventType;
 
 import javax.swing.*;
@@ -21,7 +22,6 @@ public class LoginController extends Observable {
     public LoginController(LoginView loginView, AuthService authService) {
         this.loginView = loginView;
         this.authService = authService;
-
         this.loginView.addLoginListener(e -> handleLogin());
     }
 
@@ -70,16 +70,14 @@ public class LoginController extends Observable {
         int serverPort = 7000;
         int messagesPort = 7001;
 
-
-        // Inicializar las vistas que van dentro del main view.
         CarsView carsView = new CarsView(mainView);
         CarService carService = new CarService(host, serverPort);
-        new CarsController(carsView, carService);
+        MaintenanceService maintenanceService = new MaintenanceService(host, serverPort);
+        new CarsController(carsView, carService, maintenanceService);
 
         Dictionary<String, JPanel> tabs = new Hashtable<>();
         tabs.put("Cars", carsView.getContentPanel());
 
-        // Conectarse al puerto 7001 para escuchar transmisiones del servidor
         mainView.connectToMessages(host, messagesPort);
         mainView.AddTabs(tabs);
         mainView.setVisible(true);

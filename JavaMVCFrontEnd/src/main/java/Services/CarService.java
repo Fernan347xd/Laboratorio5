@@ -9,7 +9,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 public class CarService extends BaseService {
-    // Ejecutor para Hilos.
     private final ExecutorService executor = Executors.newThreadPerTaskExecutor(Thread.ofVirtual().factory());
 
     public CarService(String host, int port) {
@@ -20,7 +19,7 @@ public class CarService extends BaseService {
         return executor.submit(() -> {
             RequestDto request = new RequestDto("Cars", "add", gson.toJson(dto), userId.toString());
             ResponseDto response = sendRequest(request);
-            if (!response.isSuccess()) return null;
+            if (response == null || !response.isSuccess()) return null;
             return gson.fromJson(response.getData(), CarResponseDto.class);
         });
     }
@@ -29,7 +28,7 @@ public class CarService extends BaseService {
         return executor.submit(() -> {
             RequestDto request = new RequestDto("Cars", "update", gson.toJson(dto), userId.toString());
             ResponseDto response = sendRequest(request);
-            if (!response.isSuccess()) return null;
+            if (response == null || !response.isSuccess()) return null;
             return gson.fromJson(response.getData(), CarResponseDto.class);
         });
     }
@@ -38,7 +37,7 @@ public class CarService extends BaseService {
         return executor.submit(() -> {
             RequestDto request = new RequestDto("Cars", "delete", gson.toJson(dto), userId.toString());
             ResponseDto response = sendRequest(request);
-            return response.isSuccess();
+            return response != null && response.isSuccess();
         });
     }
 
@@ -46,7 +45,7 @@ public class CarService extends BaseService {
         return executor.submit(() -> {
             RequestDto request = new RequestDto("Cars", "list", "", userId.toString());
             ResponseDto response = sendRequest(request);
-            if (!response.isSuccess()) return null;
+            if (response == null || !response.isSuccess()) return null;
             ListCarsResponseDto listResponse = gson.fromJson(response.getData(), ListCarsResponseDto.class);
             return listResponse.getCars();
         });
