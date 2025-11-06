@@ -1,5 +1,6 @@
 package org.example.API.controllers;
 
+import basecontroller.IBaseController;
 import com.google.gson.Gson;
 import org.example.Domain.dtos.RequestDto;
 import org.example.Domain.dtos.ResponseDto;
@@ -9,7 +10,8 @@ import org.example.Domain.dtos.auth.UserResponseDto;
 import org.example.Domain.models.User;
 import org.example.DataAccess.services.AuthService;
 
-public class AuthController {
+
+public class AuthController implements IBaseController<ResponseDto, RequestDto> {
     private final AuthService authService;
     private final Gson gson = new Gson();
 
@@ -17,6 +19,12 @@ public class AuthController {
         this.authService = authService;
     }
 
+    @Override
+    public String getControllerName() {
+        return "Auth";
+    }
+
+    @Override
     public ResponseDto route(RequestDto request) {
         try {
             switch (request.getRequest()) {
@@ -42,12 +50,8 @@ public class AuthController {
             if (loginDto == null || loginDto.getUsernameOrEmail() == null || loginDto.getPassword() == null) {
                 return new ResponseDto(false, "Invalid login payload", null);
             }
-
-            // AuthService.login ahora devuelve User en el backend (null si falla)
             User user = authService.login(loginDto.getUsernameOrEmail(), loginDto.getPassword());
-            if (user == null) {
-                return new ResponseDto(false, "Invalid credentials", null);
-            }
+            if (user == null) return new ResponseDto(false, "Invalid credentials", null);
 
             UserResponseDto userDto = mapToUserResponseDto(user);
             return new ResponseDto(true, "Login successful", gson.toJson(userDto));
@@ -64,12 +68,8 @@ public class AuthController {
             if (regDto == null || regDto.getUsername() == null || regDto.getEmail() == null || regDto.getPassword() == null) {
                 return new ResponseDto(false, "Invalid register payload", null);
             }
-
-            // AuthService.register devuelve User o null si ya existe
             User user = authService.register(regDto.getUsername(), regDto.getEmail(), regDto.getPassword(), regDto.getRole());
-            if (user == null) {
-                return new ResponseDto(false, "User already exists or could not be created", null);
-            }
+            if (user == null) return new ResponseDto(false, "User already exists or could not be created", null);
 
             UserResponseDto userDto = mapToUserResponseDto(user);
             return new ResponseDto(true, "User registered successfully", gson.toJson(userDto));
@@ -89,12 +89,10 @@ public class AuthController {
         }
     }
 
-    // --- HELPER: map User to UserResponseDto safely ---
     private UserResponseDto mapToUserResponseDto(User user) {
         if (user == null) return null;
         String createdAt = user.getCreatedAt() != null ? user.getCreatedAt().toString() : "";
         String updatedAt = user.getUpdatedAt() != null ? user.getUpdatedAt().toString() : "";
-
         return new UserResponseDto(
                 user.getId(),
                 user.getUsername(),

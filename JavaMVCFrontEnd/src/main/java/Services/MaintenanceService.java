@@ -59,7 +59,7 @@ public class MaintenanceService extends BaseService {
             }
 
             if (response.getMessage() != null && response.getMessage().toLowerCase().contains("unknown")) {
-                RequestDto fallback = new RequestDto("Maintenances", "add", payload, resolveToken(userId));
+                RequestDto fallback = new RequestDto("Maintenance", "add", payload, resolveToken(userId));
                 System.out.println("[MaintenanceService] Fallback to controller: " + fallback.getController());
                 ResponseDto resp2 = sendRequest(fallback);
                 if (resp2 == null || !resp2.isSuccess() || resp2.getData() == null || resp2.getData().isEmpty()) {
@@ -87,7 +87,7 @@ public class MaintenanceService extends BaseService {
 
                 String[][] attempts = new String[][]{
                         {"Maintenance", "listByCar"},
-                        {"Maintenances", "listByCar"}
+                        {"Maintenance", "listByCar"}
                 };
                 String[] tokensToTry = new String[]{ resolveToken(userId), "" };
 
@@ -127,7 +127,7 @@ public class MaintenanceService extends BaseService {
                         try {
                             java.util.Map<?, ?> wrapperMap = gsonLocal.fromJson(data, java.util.Map.class);
                             if (wrapperMap != null) {
-                                String[] candidateKeys = {"maintenances", "data", "items", "list", "result"};
+                                String[] candidateKeys = {"Maintenance", "data", "items", "list", "result"};
                                 for (String key : candidateKeys) {
                                     if (wrapperMap.containsKey(key)) {
                                         Object inner = wrapperMap.get(key);

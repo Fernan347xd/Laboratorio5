@@ -43,7 +43,6 @@ public class LoginController extends Observable {
                 SwingWorker<UserResponseDto, Void> regWorker = new SwingWorker<>() {
                     @Override
                     protected UserResponseDto doInBackground() throws Exception {
-                        // asumo que authService.register devuelve Future<UserResponseDto>
                         return authService.register(newUser, newEmail, newPass).get();
                     }
 
@@ -54,7 +53,6 @@ public class LoginController extends Observable {
                             UserResponseDto created = get();
                             if (created != null) {
                                 JOptionPane.showMessageDialog(loginView, "User created: " + created.getUsername());
-                                // auto-fill username for convenience
                                 loginView.setUsernameField(created.getUsername());
                             } else {
                                 JOptionPane.showMessageDialog(loginView, "User not created (maybe already exists)", "Info", JOptionPane.INFORMATION_MESSAGE);

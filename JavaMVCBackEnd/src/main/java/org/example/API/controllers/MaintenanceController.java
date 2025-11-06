@@ -1,7 +1,9 @@
 package org.example.API.controllers;
 
+import basecontroller.IBaseController;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+
 import org.example.Domain.dtos.RequestDto;
 import org.example.Domain.dtos.ResponseDto;
 import org.example.Domain.dtos.maintenance.AddMaintenanceRequestDto;
@@ -9,16 +11,18 @@ import org.example.Domain.dtos.maintenance.UpdateMaintenanceRequestDto;
 import org.example.Domain.dtos.maintenance.DeleteMaintenanceRequestDto;
 import org.example.Domain.dtos.maintenance.MaintenanceResponseDto;
 import org.example.Domain.dtos.maintenance.ListMaintenanceResponseDto;
+
 import org.example.Domain.models.Car;
 import org.example.Domain.models.Maintenance;
+
 import org.example.DataAccess.services.MaintenanceService;
 import org.example.DataAccess.services.CarService;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.Collections;
 
-public class MaintenanceController {
+public class MaintenanceController implements IBaseController<ResponseDto, RequestDto> {
 
     private final MaintenanceService maintenanceService;
     private final CarService carService;
@@ -29,6 +33,13 @@ public class MaintenanceController {
         this.carService = carService;
     }
 
+    @Override
+    public String getControllerName() {
+        return "Maintenance";
+    }
+
+    @Override
+    @SuppressWarnings("unused")
     public ResponseDto route(RequestDto request) {
         try {
             switch (request.getRequest()) {
@@ -52,7 +63,6 @@ public class MaintenanceController {
         }
     }
 
-    // --- ADD MAINTENANCE ---
     private ResponseDto handleAddMaintenance(RequestDto request) {
         try {
             if (request.getToken() == null || request.getToken().isEmpty()) {
@@ -77,7 +87,6 @@ public class MaintenanceController {
         }
     }
 
-    // --- UPDATE MAINTENANCE ---
     private ResponseDto handleUpdateMaintenance(RequestDto request) {
         try {
             if (request.getToken() == null || request.getToken().isEmpty()) {
@@ -109,7 +118,6 @@ public class MaintenanceController {
         }
     }
 
-    // --- DELETE MAINTENANCE ---
     private ResponseDto handleDeleteMaintenance(RequestDto request) {
         try {
             if (request.getToken() == null || request.getToken().isEmpty()) {
@@ -131,18 +139,14 @@ public class MaintenanceController {
         }
     }
 
-    // --- LIST MAINTENANCE BY CAR ---
     private ResponseDto handleListByCar(RequestDto request) {
         try {
-            // Autorización
             if (request.getToken() == null || request.getToken().isEmpty()) {
                 return new ResponseDto(false, "Unauthorized", null);
             }
 
-            // Logs iniciales
             System.out.println("[MaintenanceController] handleListByCar raw payload: " + request.getData() + " token=" + request.getToken());
 
-            // Parseo seguro del carId desde JSON
             Long carId;
             try {
                 JsonObject json = gson.fromJson(request.getData(), JsonObject.class);
@@ -160,7 +164,6 @@ public class MaintenanceController {
 
             System.out.println("[MaintenanceController] handleListByCar parsed carId=" + carId);
 
-            // Verificar que el coche existe (ayuda a detectar mismatch carId)
             Car car = carService.getCarById(carId);
             if (car == null) {
                 System.out.println("[MaintenanceController] handleListByCar car not found for id=" + carId);
@@ -168,17 +171,14 @@ public class MaintenanceController {
                 return new ResponseDto(false, "Car not found", gson.toJson(emptyWrapper));
             }
 
-            // Obtener lista desde el servicio (service debe ejecutar la query correcta)
             List<Maintenance> maintenanceList = maintenanceService.getAllMaintenanceByCarId(carId);
             System.out.println("[MaintenanceController] handleListByCar service returned size=" + (maintenanceList == null ? 0 : maintenanceList.size()));
 
             if (maintenanceList == null || maintenanceList.isEmpty()) {
-                // Devolver wrapper vacío pero con success=true (coincide con tu contrato actual)
                 ListMaintenanceResponseDto emptyWrapper = new ListMaintenanceResponseDto(Collections.emptyList());
                 return new ResponseDto(true, "Maintenance list retrieved successfully", gson.toJson(emptyWrapper));
             }
 
-            // Mapear entidades a DTOs
             List<MaintenanceResponseDto> dtos = maintenanceList.stream()
                     .map(this::toResponseDto)
                     .collect(Collectors.toList());
@@ -194,7 +194,6 @@ public class MaintenanceController {
         }
     }
 
-    // --- GET SINGLE MAINTENANCE ---
     private ResponseDto handleGetMaintenance(RequestDto request) {
         try {
             if (request.getToken() == null || request.getToken().isEmpty()) {
@@ -217,7 +216,6 @@ public class MaintenanceController {
         }
     }
 
-    // --- Helper method ---
     private MaintenanceResponseDto toResponseDto(Maintenance m) {
         Long carId = m.getCarMaintenance() != null ? m.getCarMaintenance().getId() : null;
         String carMake = m.getCarMaintenance() != null ? m.getCarMaintenance().getMake() : null;

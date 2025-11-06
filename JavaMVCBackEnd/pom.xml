@@ -34,6 +34,8 @@
 
     <dependencies>
         <!-- ADD DEPENDENCIES HERE -->
+        <!-- Reemplaza version si lo deseas; systemPath DEBE apuntar al jar dentro del proyecto -->
+
         <dependency>
             <groupId>org.hibernate.orm</groupId>
             <artifactId>hibernate-core</artifactId>
@@ -48,6 +50,12 @@
             <artifactId>mysql-connector-j</artifactId>
             <version>8.4.0</version> <!-- or latest -->
         </dependency>
+        <dependency>
+            <groupId>com.miorg</groupId>
+            <artifactId>socket-server-lib</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-mysql</artifactId>

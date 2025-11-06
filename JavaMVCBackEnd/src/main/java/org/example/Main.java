@@ -1,40 +1,41 @@
 package org.example;
 
+import com.google.gson.Gson;
+
 import org.example.API.controllers.AuthController;
 import org.example.API.controllers.CarController;
 import org.example.API.controllers.MaintenanceController;
+
+import org.example.DataAccess.HibernateUtil;
 import org.example.DataAccess.services.AuthService;
 import org.example.DataAccess.services.CarService;
 import org.example.DataAccess.services.MaintenanceService;
-import org.example.DataAccess.HibernateUtil;
-import org.example.Server.SocketServer;
-import org.example.Server.MessageBroadcaster;
+
 import org.example.Domain.models.User;
+import org.example.Domain.dtos.RequestDto;
+
+import org.example.Server.AppServer;
 
 public class Main {
     public static void main(String[] args) {
+
         var sessionFactory = HibernateUtil.getSessionFactory();
 
-        // Initialize services and controllers
         AuthService authService = new AuthService(sessionFactory);
-        AuthController authController = new AuthController(authService);
-
         CarService carService = new CarService(sessionFactory);
-        CarController carController = new CarController(carService);
-
         MaintenanceService maintenanceService = new MaintenanceService(sessionFactory);
+
+        AuthController authController = new AuthController(authService);
+        CarController carController = new CarController(carService);
         MaintenanceController maintenanceController = new MaintenanceController(maintenanceService, carService);
 
         var createUsers = true;
         if (createUsers) {
-            // Intentar crear usuarios por defecto sin detener la aplicación si ya existen
             try {
                 User u1 = authService.register("user", "email@example.com", "pass", "USER");
-                if (u1 == null) {
-                    System.out.println("User 'user' already exists, skipping creation.");
-                } else {
-                    System.out.println("Created default user: " + u1.getUsername());
-                }
+                System.out.println(u1 == null
+                        ? "User 'user' already exists, skipping creation."
+                        : "Created default user: " + u1.getUsername());
             } catch (Exception ex) {
                 System.out.println("User 'user' registration failed but application will continue: " + ex.getMessage());
                 ex.printStackTrace();
@@ -42,42 +43,50 @@ public class Main {
 
             try {
                 User u2 = authService.register("otro", "otro@example.com", "pass", "USER");
-                if (u2 == null) {
-                    System.out.println("User 'otro' already exists, skipping creation.");
-                } else {
-                    System.out.println("Created default user: " + u2.getUsername());
-                }
+                System.out.println(u2 == null
+                        ? "User 'otro' already exists, skipping creation."
+                        : "Created default user: " + u2.getUsername());
             } catch (Exception ex) {
                 System.out.println("User 'otro' registration failed but application will continue: " + ex.getMessage());
                 ex.printStackTrace();
             }
         }
 
-        // Server for request/response (API-like)
-        int requestPort = 7000;
-        SocketServer requestServer = new SocketServer(
-                requestPort,
+        final int REQUEST_PORT = 7000;
+        final int MESSAGE_PORT = 7001;
+        AppServer.initialize(REQUEST_PORT, MESSAGE_PORT);
+
+        final Gson gson = new Gson();
+
+        AppServer.getRequestServer().addController(
                 authController,
+                (String requestJson) -> gson.fromJson(requestJson, RequestDto.class),
+                (Object responseObj) -> gson.toJson(responseObj)
+        );
+
+        AppServer.getRequestServer().addController(
                 carController,
-                maintenanceController);
+                (String requestJson) -> gson.fromJson(requestJson, RequestDto.class),
+                (Object responseObj) -> gson.toJson(responseObj)
+        );
 
-        // Server for chat/broadcasting (persistent connections)
-        int messagePort = 7001;
-        MessageBroadcaster messageBroadcaster = new MessageBroadcaster(messagePort, requestServer);
+        AppServer.getRequestServer().addController(
+                maintenanceController,
+                (String requestJson) -> gson.fromJson(requestJson, RequestDto.class),
+                (Object responseObj) -> gson.toJson(responseObj)
+        );
 
-        // Register the broadcaster with the request server so it can broadcast messages
-        requestServer.setMessageBroadcaster(messageBroadcaster);
-
-        // Shutdown hook
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("\nShutting down servers...");
-            requestServer.stop();
-            messageBroadcaster.stop();
+            try { AppServer.getRequestServer().stop(); } catch (Exception ignore) {}
+            try { AppServer.getMessageBroadcaster().stop(); } catch (Exception ignore) {}
         }));
 
-        // Start servers
-        requestServer.start();
-        messageBroadcaster.start();
-        System.out.println("Servers started - Requests: " + requestPort + ", Messages: " + messagePort);
+        AppServer.getRequestServer().start();
+        AppServer.getMessageBroadcaster().start();
+
+        AppServer.getRequestServer().broadcast("Server started!");
+
+        System.out.println("Servers started - Requests: " + REQUEST_PORT + ", Messages: " + MESSAGE_PORT);
     }
 }
